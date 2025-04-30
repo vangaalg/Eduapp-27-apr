@@ -3,6 +3,7 @@ import { StudentSurvey } from '../types/survey';
 import { X } from 'lucide-react';
 import { saveSurveyResponse, hasSurveyResponse } from '../utils/surveyStorage';
 import { supabase } from '../lib/supabaseClient';
+import OpenAI from 'openai';
 
 interface InitialSurveyProps {
   onComplete: (survey: StudentSurvey) => void;
@@ -50,6 +51,7 @@ const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose }) =>
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isFormValid, setIsFormValid] = useState(false);
   const [formData, setFormData] = useState<StudentSurvey>({
     name: '',
     age: 0,
@@ -95,6 +97,21 @@ const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose }) =>
     checkAuth();
   }, [onClose]);
 
+  useEffect(() => {
+    const validateForm = () => {
+      const isPersonalInfoValid = formData.name && formData.age > 0 && formData.class && formData.state;
+      const isExamPrefsValid = formData.targetYear && formData.targetSession;
+      const isSubjectsValid = Object.values(formData.subjects).every(subject => 
+        subject.confidence >= 1 && subject.confidence <= 5 && subject.weakTopics.length > 0
+      );
+      const isStudyPrefsValid = formData.studyHoursPerDay > 0 && formData.preferredStudyTime && formData.targetInstitutes.length > 0;
+
+      setIsFormValid(isPersonalInfoValid && isExamPrefsValid && isSubjectsValid && isStudyPrefsValid);
+    };
+
+    validateForm();
+  }, [formData]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[200px]">
@@ -105,12 +122,27 @@ const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose }) =>
 
   if (!isAuthenticated) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
-        <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-xl shadow-lg p-8 text-center max-w-md w-full relative">
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+          >
+            <X size={24} />
+          </button>
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Sign in to Continue</h2>
           <p className="text-gray-600 mb-6">Please sign in to take the initial assessment and create your personalized study plan.</p>
           <button
-            onClick={() => supabase.auth.signInWithOAuth({ provider: 'google' })}
+            onClick={() => supabase.auth.signInWithOAuth({
+              provider: 'google',
+              options: {
+                redirectTo: `${window.location.origin}/assessment`,
+                queryParams: {
+                  access_type: 'offline',
+                  prompt: 'consent'
+                }
+              }
+            })}
             className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
           >
             Sign in with Google
@@ -143,7 +175,7 @@ const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose }) =>
     } else {
       setFormData(prev => ({
         ...prev,
-        [name]: value
+        [name]: type === 'number' ? Number(value) || 0 : value
       }));
     }
   };
@@ -185,14 +217,83 @@ const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose }) =>
     }));
   };
 
+  const analyzeWithOpenAI = async (surveyData: StudentSurvey) => {
+    try {
+      const openai = new OpenAI({
+        apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+      });
+
+      const prompt = `
+        Based on the following student survey data, create a personalized learning program:
+        - Student Profile: ${surveyData.name}, Class ${surveyData.class}
+        - Weak Topics in Physics: ${surveyData.subjects.physics.weakTopics.join(', ')}
+        - Weak Topics in Chemistry: ${surveyData.subjects.chemistry.weakTopics.join(', ')}
+        - Weak Topics in Mathematics: ${surveyData.subjects.mathematics.weakTopics.join(', ')}
+        - Study Hours: ${surveyData.studyHoursPerDay} hours per day
+        - Preferred Time: ${surveyData.preferredStudyTime}
+        - Target Institutes: ${surveyData.targetInstitutes.join(', ')}
+        
+        Create a structured learning program that includes:
+        1. Daily study schedule
+        2. Topic-wise study plan
+        3. Practice recommendations
+        4. Test series schedule
+      `;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: prompt }],
+      });
+
+      return response.choices[0]?.message?.content || '';
+    } catch (error) {
+      console.error('OpenAI Analysis Error:', error);
+      throw new Error('Failed to analyze survey data');
+    }
+  };
+
   const handleSubmitSurvey = async () => {
     try {
       setIsLoading(true);
+      
+      // Save survey response to Supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error: surveyError } = await supabase
+        .from('survey_responses')
+        .insert([
+          {
+            user_id: user.id,
+            ...formData,
+            created_at: new Date().toISOString(),
+          }
+        ]);
+
+      if (surveyError) throw surveyError;
+
+      // Generate learning program using OpenAI
+      const learningProgram = await analyzeWithOpenAI(formData);
+
+      // Save learning program to Supabase
+      const { error: programError } = await supabase
+        .from('learning_programs')
+        .insert([
+          {
+            user_id: user.id,
+            program_data: learningProgram,
+            created_at: new Date().toISOString(),
+          }
+        ]);
+
+      if (programError) throw programError;
+
       await saveSurveyResponse(formData);
       setHasSubmitted(true);
       onComplete(formData);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save survey');
+    } finally {
       setIsLoading(false);
     }
   };
@@ -213,6 +314,7 @@ const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose }) =>
 
   const handleCloseClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
     onClose();
   };
 
@@ -447,54 +549,68 @@ const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose }) =>
   );
 
   return (
-    <div className="max-w-4xl mx-auto p-6 relative">
-      <div className="bg-white rounded-xl shadow-lg p-8">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto relative">
         <button
           onClick={handleCloseClick}
-          className="absolute top-8 right-8 p-2 rounded-full hover:bg-gray-100 transition-colors"
-          aria-label="Close survey"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 z-50"
+          type="button"
         >
-          <X className="w-6 h-6 text-gray-500" />
+          <X size={24} />
         </button>
-
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-2">
+        
+        <div className="p-6">
+          <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-900">Student Survey</h1>
-            <span className="text-sm text-gray-600">Step {currentStep} of 4</span>
+            <div className="w-full bg-gray-200 h-2 rounded-full mt-4">
+              <div
+                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${(currentStep / 4) * 100}%` }}
+              />
+            </div>
+            <p className="text-sm text-gray-500 mt-2">Step {currentStep} of 4</p>
           </div>
-          <div className="w-full h-2 bg-gray-200 rounded-full">
-            <div
-              className="h-full bg-blue-600 rounded-full transition-all duration-300"
-              style={{ width: `${(currentStep / 4) * 100}%` }}
-            />
-          </div>
-        </div>
 
-        <div className="mt-6">
-          {currentStep === 1 && renderPersonalInfo()}
-          {currentStep === 2 && renderExamPreferences()}
-          {currentStep === 3 && renderSubjectPreferences()}
-          {currentStep === 4 && renderStudyPreferences()}
-        </div>
+          <form onSubmit={(e) => e.preventDefault()}>
+            {currentStep === 1 && renderPersonalInfo()}
+            {currentStep === 2 && renderExamPreferences()}
+            {currentStep === 3 && renderSubjectPreferences()}
+            {currentStep === 4 && renderStudyPreferences()}
 
-        <div className="mt-8 flex justify-between">
-          <button
-            onClick={handleBack}
-            className={`px-4 py-2 rounded-md text-sm font-medium ${
-              currentStep === 1
-                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-            }`}
-            disabled={currentStep === 1}
-          >
-            Back
-          </button>
-          <button
-            onClick={handleNext}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
-          >
-            {currentStep === 4 ? 'Complete' : 'Next'}
-          </button>
+            <div className="mt-6 flex justify-between">
+              {currentStep > 1 && (
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Back
+                </button>
+              )}
+              {currentStep < 4 ? (
+                <button
+                  type="button"
+                  onClick={handleNext}
+                  className="ml-auto px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                >
+                  Next
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSubmitSurvey}
+                  disabled={!isFormValid || isLoading}
+                  className={`ml-auto px-4 py-2 text-sm font-medium text-white rounded-md ${
+                    isFormValid && !isLoading
+                      ? 'bg-blue-600 hover:bg-blue-700'
+                      : 'bg-gray-400 cursor-not-allowed'
+                  }`}
+                >
+                  {isLoading ? 'Submitting...' : 'Complete'}
+                </button>
+              )}
+            </div>
+          </form>
         </div>
       </div>
     </div>

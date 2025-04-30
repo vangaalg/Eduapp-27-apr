@@ -15,6 +15,7 @@ import { mockTestResults, mockStudyActivities, mockAssessmentResults, mockLearni
 import InitialSurvey from '../components/InitialSurvey';
 import { StudentSurvey } from '../types/survey';
 import { examService } from '../services/examDates';
+import { supabase } from '../lib/supabaseClient';
 
 interface UserProgress {
   completedAssessments: number;
@@ -28,7 +29,7 @@ interface UserProgress {
 
 const UserFlow: React.FC = () => {
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState<'onboarding' | 'survey' | 'assessment' | 'planning' | 'dashboard'>('survey');
+  const [currentStep, setCurrentStep] = useState<'onboarding' | 'survey' | 'assessment' | 'planning' | 'dashboard'>('onboarding');
   const [userProgress, setUserProgress] = useState<UserProgress>({
     completedAssessments: mockTestResults.length,
     totalStudyHours: mockStudyActivities.reduce((total, activity) => total + activity.timeSpent / 60, 0),
@@ -38,6 +39,30 @@ const UserFlow: React.FC = () => {
     examDate: mockLearningPlan.examDate,
     weeksRemaining: 0
   });
+
+  useEffect(() => {
+    const checkAuthAndSurvey = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        // If user is authenticated, check if they've completed the survey
+        const { count } = await supabase
+          .from('survey_responses')
+          .select('*', { count: 'exact', head: true })
+          .eq('user_id', user.id);
+
+        if (count === 0) {
+          // If authenticated but no survey, show survey
+          setCurrentStep('survey');
+        } else {
+          // If authenticated and has survey, show dashboard
+          setCurrentStep('dashboard');
+        }
+      }
+      // If not authenticated, stay on onboarding (default state)
+    };
+
+    checkAuthAndSurvey();
+  }, []);
 
   const handleSurveyComplete = (survey: StudentSurvey) => {
     try {

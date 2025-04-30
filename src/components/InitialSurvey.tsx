@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StudentSurvey } from '../types/survey';
 import { X } from 'lucide-react';
+import { saveSurveyResponse, hasSurveyResponse } from '../utils/surveyStorage';
+import { supabase } from '../lib/supabaseClient';
 
 interface InitialSurveyProps {
   onComplete: (survey: StudentSurvey) => void;
@@ -44,18 +46,91 @@ const TOP_INSTITUTES = [
 
 const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose }) => {
   const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState<Partial<StudentSurvey>>({
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [formData, setFormData] = useState<StudentSurvey>({
+    name: '',
+    age: 0,
+    class: '12',
+    state: '',
+    city: '',
+    school: '',
+    targetYear: '',
+    targetSession: 'April',
+    preferredLanguage: 'English',
+    previousAttempts: 0,
     subjects: {
       physics: { confidence: 3, weakTopics: [] },
       chemistry: { confidence: 3, weakTopics: [] },
       mathematics: { confidence: 3, weakTopics: [] }
     },
-    targetInstitutes: [],
-    previousAttempts: 0,
     studyHoursPerDay: 6,
     hasPersonalTutor: false,
-    preferredStudyTime: 'Morning'
+    preferredStudyTime: 'Morning',
+    targetInstitutes: []
   });
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        setIsAuthenticated(!!user);
+        
+        if (user) {
+          const hasResponse = await hasSurveyResponse();
+          if (hasResponse) {
+            setHasSubmitted(true);
+            onClose();
+          }
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to check authentication status');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, [onClose]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[200px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="bg-white rounded-xl shadow-lg p-8 text-center">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Sign in to Continue</h2>
+          <p className="text-gray-600 mb-6">Please sign in to take the initial assessment and create your personalized study plan.</p>
+          <button
+            onClick={() => supabase.auth.signInWithOAuth({ provider: 'google' })}
+            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+          >
+            Sign in with Google
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 text-red-600 rounded-md">
+        {error}
+      </div>
+    );
+  }
+
+  if (hasSubmitted) {
+    return null;
+  }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -65,18 +140,6 @@ const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose }) =>
         ...prev,
         [name]: checkbox.checked
       }));
-    } else if (name.includes('confidence')) {
-      const [subject] = name.split('.');
-      setFormData(prev => ({
-        ...prev,
-        subjects: {
-          ...prev.subjects,
-          [subject]: {
-            ...prev.subjects?.[subject as keyof typeof prev.subjects],
-            confidence: parseInt(value) as 1 | 2 | 3 | 4 | 5
-          }
-        }
-      }));
     } else {
       setFormData(prev => ({
         ...prev,
@@ -85,28 +148,60 @@ const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose }) =>
     }
   };
 
-  const handleMultiSelect = (name: string, value: string) => {
-    setFormData(prev => {
-      const currentArray = prev[name as keyof typeof prev] as string[] || [];
-      if (currentArray.includes(value)) {
-        return {
-          ...prev,
-          [name]: currentArray.filter(item => item !== value)
-        };
-      } else {
-        return {
-          ...prev,
-          [name]: [...currentArray, value]
-        };
+  const handleSubjectConfidence = (subject: keyof StudentSurvey['subjects'], value: number) => {
+    setFormData(prev => ({
+      ...prev,
+      subjects: {
+        ...prev.subjects,
+        [subject]: {
+          ...prev.subjects[subject],
+          confidence: value as 1 | 2 | 3 | 4 | 5
+        }
       }
-    });
+    }));
   };
 
-  const handleNext = () => {
+  const handleWeakTopics = (subject: keyof StudentSurvey['subjects'], topic: string) => {
+    setFormData(prev => ({
+      ...prev,
+      subjects: {
+        ...prev.subjects,
+        [subject]: {
+          ...prev.subjects[subject],
+          weakTopics: prev.subjects[subject].weakTopics.includes(topic)
+            ? prev.subjects[subject].weakTopics.filter(t => t !== topic)
+            : [...prev.subjects[subject].weakTopics, topic]
+        }
+      }
+    }));
+  };
+
+  const handleTargetInstitutes = (institute: string) => {
+    setFormData(prev => ({
+      ...prev,
+      targetInstitutes: prev.targetInstitutes.includes(institute)
+        ? prev.targetInstitutes.filter(i => i !== institute)
+        : [...prev.targetInstitutes, institute]
+    }));
+  };
+
+  const handleSubmitSurvey = async () => {
+    try {
+      setIsLoading(true);
+      await saveSurveyResponse(formData);
+      setHasSubmitted(true);
+      onComplete(formData);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save survey');
+      setIsLoading(false);
+    }
+  };
+
+  const handleNext = async () => {
     if (currentStep < 4) {
       setCurrentStep(prev => prev + 1);
     } else {
-      onComplete(formData as StudentSurvey);
+      await handleSubmitSurvey();
     }
   };
 
@@ -258,7 +353,7 @@ const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose }) =>
               min="1"
               max="5"
               value={formData.subjects?.[subject as keyof typeof formData.subjects]?.confidence || 3}
-              onChange={handleInputChange}
+              onChange={(e) => handleSubjectConfidence(subject as keyof StudentSurvey['subjects'], parseInt(e.target.value) as 1 | 2 | 3 | 4 | 5)}
               className="mt-1 block w-full"
             />
             <div className="flex justify-between text-xs text-gray-500">
@@ -276,7 +371,7 @@ const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose }) =>
                   <input
                     type="checkbox"
                     checked={formData.subjects?.[subject as keyof typeof formData.subjects]?.weakTopics.includes(topic)}
-                    onChange={() => handleMultiSelect(`subjects.${subject}.weakTopics`, topic)}
+                    onChange={(e) => handleWeakTopics(subject as keyof StudentSurvey['subjects'], topic)}
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
                   <span className="text-sm">{topic}</span>
@@ -327,7 +422,7 @@ const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose }) =>
                 <input
                   type="checkbox"
                   checked={formData.targetInstitutes?.includes(institute)}
-                  onChange={() => handleMultiSelect('targetInstitutes', institute)}
+                  onChange={() => handleTargetInstitutes(institute)}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="text-sm">{institute}</span>

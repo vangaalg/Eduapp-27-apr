@@ -61,31 +61,31 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <Router>
-        <div className="min-h-screen flex flex-col bg-gray-50">
+    <Router>
+      <div className="min-h-screen flex flex-col bg-gray-50">
           {/* Debug element */}
           <div className="fixed bottom-0 right-0 bg-white p-2 text-xs z-50">
             App is running
           </div>
           
-          {/* ElevenLabs Convai Widget (global) */}
-          <elevenlabs-convai agent-id="4t8cXDZRjIvWYzOmji5s"></elevenlabs-convai>
-          <Navbar />
-          <div className="flex-grow">
-            <Routes>
-              <Route path="/" element={<UserFlow />} />
-              <Route path="/assessment" element={<Assessment />} />
-              <Route path="/dashboard" element={<DashboardPage />} />
-              <Route path="/study-materials" element={<StudyMaterialsPage />} />
-              <Route path="/mock-tests" element={<MockTestsPage />} />
-              <Route path="/pricing" element={<PricingPage />} />
-              <Route path="/admin" element={<AdminPage />} />
-              <Route path="/chat" element={<ChatbotPage />} />
-            </Routes>
-          </div>
-          <Footer />
+        {/* ElevenLabs Convai Widget (global) */}
+        <elevenlabs-convai agent-id="4t8cXDZRjIvWYzOmji5s"></elevenlabs-convai>
+        <Navbar />
+        <div className="flex-grow">
+          <Routes>
+            <Route path="/" element={<UserFlow />} />
+            <Route path="/assessment" element={<Assessment />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/study-materials" element={<StudyMaterialsPage />} />
+            <Route path="/mock-tests" element={<MockTestsPage />} />
+            <Route path="/pricing" element={<PricingPage />} />
+            <Route path="/admin" element={<AdminPage />} />
+            <Route path="/chat" element={<ChatbotPage />} />
+          </Routes>
         </div>
-      </Router>
+        <Footer />
+      </div>
+    </Router>
     </ErrorBoundary>
   );
 }

@@ -11,6 +11,7 @@ import { AdminPage } from './pages/AdminPage';
 import { ChatbotPage } from './pages/ChatbotPage';
 import UserFlow from './pages/UserFlow';
 import Assessment from './pages/Assessment';
+import ErrorBoundary from './components/ErrorBoundary';
 
 // Placeholder components for Study Materials and Mock Tests
 const MockTestsPage = () => (
@@ -36,38 +37,56 @@ declare global {
 
 function App() {
   useEffect(() => {
+    console.log('App component mounted');
     // Dynamically add the ElevenLabs convai widget script
     const script = document.createElement('script');
     script.src = 'https://elevenlabs.io/convai-widget/index.js';
     script.async = true;
     script.type = 'text/javascript';
     document.body.appendChild(script);
+
+    // Add error handler for script loading
+    script.onerror = (error) => {
+      console.error('Error loading ElevenLabs script:', error);
+    };
+
     return () => {
+      console.log('App component unmounting');
       document.body.removeChild(script);
     };
   }, []);
 
+  // Add some debug logging
+  console.log('App rendering');
+
   return (
-    <Router>
-      <div className="min-h-screen flex flex-col bg-gray-50">
-        {/* ElevenLabs Convai Widget (global) */}
-        <elevenlabs-convai agent-id="4t8cXDZRjIvWYzOmji5s"></elevenlabs-convai>
-        <Navbar />
-        <div className="flex-grow">
-          <Routes>
-            <Route path="/" element={<UserFlow />} />
-            <Route path="/assessment" element={<Assessment />} />
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/study-materials" element={<StudyMaterialsPage />} />
-            <Route path="/mock-tests" element={<MockTestsPage />} />
-            <Route path="/pricing" element={<PricingPage />} />
-            <Route path="/admin" element={<AdminPage />} />
-            <Route path="/chat" element={<ChatbotPage />} />
-          </Routes>
+    <ErrorBoundary>
+      <Router>
+        <div className="min-h-screen flex flex-col bg-gray-50">
+          {/* Debug element */}
+          <div className="fixed bottom-0 right-0 bg-white p-2 text-xs z-50">
+            App is running
+          </div>
+          
+          {/* ElevenLabs Convai Widget (global) */}
+          <elevenlabs-convai agent-id="4t8cXDZRjIvWYzOmji5s"></elevenlabs-convai>
+          <Navbar />
+          <div className="flex-grow">
+            <Routes>
+              <Route path="/" element={<UserFlow />} />
+              <Route path="/assessment" element={<Assessment />} />
+              <Route path="/dashboard" element={<DashboardPage />} />
+              <Route path="/study-materials" element={<StudyMaterialsPage />} />
+              <Route path="/mock-tests" element={<MockTestsPage />} />
+              <Route path="/pricing" element={<PricingPage />} />
+              <Route path="/admin" element={<AdminPage />} />
+              <Route path="/chat" element={<ChatbotPage />} />
+            </Routes>
+          </div>
+          <Footer />
         </div>
-        <Footer />
-      </div>
-    </Router>
+      </Router>
+    </ErrorBoundary>
   );
 }
 

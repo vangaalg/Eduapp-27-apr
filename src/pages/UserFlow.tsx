@@ -59,8 +59,8 @@ const UserFlow: React.FC = () => {
   };
 
   const handleSurveyClose = () => {
-    // Navigate to home page
-    navigate('/');
+    // Change the current step to onboarding
+    setCurrentStep('onboarding');
   };
 
   useEffect(() => {

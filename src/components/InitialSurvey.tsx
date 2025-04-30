@@ -116,6 +116,11 @@ const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose }) =>
     }
   };
 
+  const handleCloseClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    onClose();
+  };
+
   const renderPersonalInfo = () => (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold mb-4">Personal Information</h2>
@@ -350,7 +355,7 @@ const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose }) =>
     <div className="max-w-4xl mx-auto p-6 relative">
       <div className="bg-white rounded-xl shadow-lg p-8">
         <button
-          onClick={onClose}
+          onClick={handleCloseClick}
           className="absolute top-8 right-8 p-2 rounded-full hover:bg-gray-100 transition-colors"
           aria-label="Close survey"
         >

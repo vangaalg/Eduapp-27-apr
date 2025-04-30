@@ -58,6 +58,11 @@ const UserFlow: React.FC = () => {
     }
   };
 
+  const handleSurveyClose = () => {
+    // Navigate to home page
+    navigate('/');
+  };
+
   useEffect(() => {
     // Calculate weeks remaining until exam
     const today = new Date();
@@ -127,7 +132,7 @@ const UserFlow: React.FC = () => {
   );
 
   const renderSurvey = () => (
-    <InitialSurvey onComplete={handleSurveyComplete} />
+    <InitialSurvey onComplete={handleSurveyComplete} onClose={handleSurveyClose} />
   );
 
   const renderDashboard = () => (

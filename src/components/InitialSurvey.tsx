@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { StudentSurvey } from '../types/survey';
+import { X } from 'lucide-react';
 
 interface InitialSurveyProps {
   onComplete: (survey: StudentSurvey) => void;
+  onClose: () => void;
 }
 
 const STATES = [
@@ -40,7 +42,7 @@ const TOP_INSTITUTES = [
   'IIT Kharagpur', 'IIT Roorkee', 'IIT Guwahati', 'IIT Hyderabad'
 ];
 
-const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete }) => {
+const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<Partial<StudentSurvey>>({
     subjects: {
@@ -345,49 +347,55 @@ const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete }) => {
   );
 
   return (
-    <div className="max-w-4xl mx-auto p-6">
+    <div className="max-w-4xl mx-auto p-6 relative">
       <div className="bg-white rounded-xl shadow-lg p-8">
+        <button
+          onClick={onClose}
+          className="absolute top-8 right-8 p-2 rounded-full hover:bg-gray-100 transition-colors"
+          aria-label="Close survey"
+        >
+          <X className="w-6 h-6 text-gray-500" />
+        </button>
+
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex justify-between items-center mb-2">
             <h1 className="text-2xl font-bold text-gray-900">Student Survey</h1>
-            <span className="text-sm text-gray-500">Step {currentStep} of 4</span>
+            <span className="text-sm text-gray-600">Step {currentStep} of 4</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="w-full h-2 bg-gray-200 rounded-full">
             <div
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              className="h-full bg-blue-600 rounded-full transition-all duration-300"
               style={{ width: `${(currentStep / 4) * 100}%` }}
             />
           </div>
         </div>
 
-        <form onSubmit={(e) => e.preventDefault()} className="space-y-8">
+        <div className="mt-6">
           {currentStep === 1 && renderPersonalInfo()}
           {currentStep === 2 && renderExamPreferences()}
           {currentStep === 3 && renderSubjectPreferences()}
           {currentStep === 4 && renderStudyPreferences()}
+        </div>
 
-          <div className="flex justify-between pt-4 border-t border-gray-200">
-            <button
-              type="button"
-              onClick={handleBack}
-              className={`px-4 py-2 text-sm font-medium rounded-md ${
-                currentStep === 1
-                  ? 'text-gray-400 cursor-not-allowed'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-              disabled={currentStep === 1}
-            >
-              Back
-            </button>
-            <button
-              type="button"
-              onClick={handleNext}
-              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              {currentStep === 4 ? 'Complete' : 'Next'}
-            </button>
-          </div>
-        </form>
+        <div className="mt-8 flex justify-between">
+          <button
+            onClick={handleBack}
+            className={`px-4 py-2 rounded-md text-sm font-medium ${
+              currentStep === 1
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+            }`}
+            disabled={currentStep === 1}
+          >
+            Back
+          </button>
+          <button
+            onClick={handleNext}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700"
+          >
+            {currentStep === 4 ? 'Complete' : 'Next'}
+          </button>
+        </div>
       </div>
     </div>
   );

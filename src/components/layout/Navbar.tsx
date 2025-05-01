@@ -48,10 +48,10 @@ const Navbar = () => {
         <div className="flex justify-between h-16 items-center">
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2">
-              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center">
                 <BookOpen size={24} className="text-white" />
               </div>
-              <span className="font-bold text-xl text-blue-600">EduPrep<span className="text-purple-600">AI</span></span>
+              <span className="font-bold text-xl text-indigo-600">EduPrep<span className="text-purple-600">AI</span></span>
             </Link>
           </div>
 

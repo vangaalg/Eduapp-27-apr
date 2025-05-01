@@ -2,7 +2,7 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/layout/Navbar';
 import Footer from './components/layout/Footer';
-import UserFlow from './pages/UserFlow';
+import Home from './pages/Home';
 import Assessment from './pages/Assessment';
 import DashboardPage from './pages/DashboardPage';
 import StudyMaterialsPage from './pages/StudyMaterialsPage';
@@ -11,6 +11,8 @@ import PricingPage from './pages/PricingPage';
 import { AdminPage } from './pages/AdminPage';
 import { ChatbotPage } from './pages/ChatbotPage';
 import ElevenLabsWidget from './components/ElevenLabsWidget';
+import AuthTest from './pages/AuthTest';
+import SupabaseSetup from './pages/SupabaseSetup';
 
 function App() {
   return (
@@ -28,7 +30,7 @@ function App() {
           <Navbar />
           <div className="flex-grow">
             <Routes>
-              <Route path="/" element={<UserFlow />} />
+              <Route path="/" element={<Home />} />
               <Route path="/assessment" element={<Assessment />} />
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/study-materials" element={<StudyMaterialsPage />} />
@@ -36,6 +38,8 @@ function App() {
               <Route path="/pricing" element={<PricingPage />} />
               <Route path="/admin" element={<AdminPage />} />
               <Route path="/chat" element={<ChatbotPage />} />
+              <Route path="/auth-test" element={<AuthTest />} />
+              <Route path="/supabase-setup" element={<SupabaseSetup />} />
             </Routes>
           </div>
           <Footer />

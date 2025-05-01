@@ -8,6 +8,11 @@ import OpenAI from 'openai';
 interface InitialSurveyProps {
   onComplete: (survey: StudentSurvey) => void;
   onClose: () => void;
+  userProfile?: {
+    email?: string;
+    full_name?: string;
+    avatar_url?: string;
+  };
 }
 
 const STATES = [
@@ -45,7 +50,7 @@ const TOP_INSTITUTES = [
   'IIT Kharagpur', 'IIT Roorkee', 'IIT Guwahati', 'IIT Hyderabad'
 ];
 
-const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose }) => {
+const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose, userProfile }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [hasSubmitted, setHasSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -53,7 +58,7 @@ const InitialSurvey: React.FC<InitialSurveyProps> = ({ onComplete, onClose }) =>
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isFormValid, setIsFormValid] = useState(false);
   const [formData, setFormData] = useState<StudentSurvey>({
-    name: '',
+    name: userProfile?.full_name || '',
     age: 0,
     class: '12',
     state: '',

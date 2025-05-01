@@ -26,6 +26,21 @@ const Assessment: React.FC = () => {
   const [showSurvey, setShowSurvey] = useState(true);
 
   useEffect(() => {
+    // Handle OAuth callback
+    const handleAuthCallback = async () => {
+      const hash = window.location.hash;
+      if (hash && hash.includes('access_token')) {
+        setLoading(true);
+        const { error } = await supabase.auth.getSession();
+        if (error) {
+          setAuthError(error.message);
+        }
+        setLoading(false);
+      }
+    };
+
+    handleAuthCallback();
+
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
@@ -175,15 +190,25 @@ const Assessment: React.FC = () => {
       setLoading(true);
       setAuthError(null);
       
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/assessment`
+          redirectTo: `${window.location.origin}/assessment`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
         }
       });
       
       if (error) {
         setAuthError(`Login error: ${error.message}`);
+        return;
+      }
+
+      // Redirect to the OAuth URL
+      if (data?.url) {
+        window.location.href = data.url;
       }
     } catch (error: any) {
       setAuthError(error.message);
